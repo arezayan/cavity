@@ -22,4 +22,4 @@ def rand_points(minx,maxx,miny,maxy,ndata,dim):
     return pd.DataFrame(point).to_excel("output.xlsx",index_label=None)
 
 
-rand_points(0, 1, 0, 0.1, 20, 2)
+rand_points(0, 1, 0, 0.1, 130, 2)

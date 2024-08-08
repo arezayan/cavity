@@ -36,8 +36,8 @@ class PINN(nn.Module):
         return x
 
 # Define the network architecture
-layers = [2, 40, 40, 40, 40, 40, 40, 40, 4]  # Input: (x, y), Output: (u, v, p, T)
-#layers = [2, 20, 20, 20, 4]  # Input: (x, y), Output: (u, v, p)
+#layers = [2, 40, 40, 40, 40, 40, 40, 40, 4]  # Input: (x, y), Output: (u, v, p, T)
+layers = [2, 20,20,40,40 ,20, 20, 4]  # Input: (x, y), Output: (u, v, p)
 model = PINN(layers).to(device)
 
 def PDE(model, x, y, mu=0.01,alpha = 1,  lambda_momentum=0.9, lambda_continuity=0.9):
@@ -115,25 +115,46 @@ def total_loss(model, x, y, u_exact, v_exact, p_exact=None, T_exact=None, mu=0.0
 epochs = 5000
 mu = 0.01  # Dynamic viscosity
 alpha = 0.002
-lambda_momentum = 1.0
-lambda_continuity = 1.0
+lambda_momentum = .1
+lambda_continuity = 0.2
 lambda_data = 1.0
 
 
+def train(model, optimizer, x_data, y_data, u_exact, v_exact, p_exact=None,T_exact=None, epochs=10000):
+    for epoch in range(epochs):
+        def closure():
+            optimizer.zero_grad()
+            loss = total_loss(model, x_data, y_data, u_exact, v_exact, p_exact,T_exact, mu,alpha,  
+                          lambda_momentum, lambda_continuity, lambda_data)
+            loss.backward()
+            optimizer.step(closure)
+            return loss
+        if epoch % 100 == 0:
+            print(f'Epoch {epoch}, Loss: {loss.item()}')
+            plt.scatter(epoch,loss.detach().numpy())
+            plt.show()
 
+    
+                
+optimizer = optim.LBFGS(model.parameters(), lr=0.001, max_iter=50000, history_size=1000)
+
+"""
 # Optimization using Adam optimizer
 def train(model, optimizer, x_data, y_data, u_exact, v_exact, p_exact=None,T_exact=None, epochs=10000):
     for epoch in range(epochs):
-        optimizer.zero_grad()
-        loss = total_loss(model, x_data, y_data, u_exact, v_exact, p_exact,T_exact, mu,alpha,  
+        def closure():
+            optimizer.zero_grad()
+            loss = total_loss(model, x_data, y_data, u_exact, v_exact, p_exact,T_exact, mu,alpha,  
                           lambda_momentum, lambda_continuity, lambda_data)
-        loss.backward()
-        optimizer.step()
-        if epoch % 500 == 0:
-            print(f'Epoch {epoch}: Loss = {loss.item()}')
-
+            loss.backward()
+            optimizer.step(closure)
+            return loss
+            if epoch % 500 == 0:
+                print(f'Epoch {epoch}: Loss = {loss.item()}')
+"""
 # Load data from CSV
-data = pd.read_csv('Data_PINN_Cavity_hetaFlux.csv')
+data = pd.read_csv('sparce_data.csv')
+#data = data - data.min() / (data.max() - data.min())
 x_data = torch.tensor(data[['x']].values, dtype=torch.float32).to(device)
 y_data = torch.tensor(data[['y']].values, dtype=torch.float32).to(device)
 u_exact = torch.tensor(data[['u']].values, dtype=torch.float32).to(device)
@@ -141,20 +162,11 @@ v_exact = torch.tensor(data[['v']].values, dtype=torch.float32).to(device)
 p_exact = torch.tensor(data[['p']].values, dtype=torch.float32).to(device) if 'p' in data.columns else None
 T_exact = torch.tensor(data[['T']].values, dtype=torch.float32).to(device) if 'T' in data.columns else None
 
-x_data = torch.tensor(normalize(x_data, axis=0),dtype = torch.float32)
-y_data = torch.tensor(normalize(y_data,axis=0),dtype = torch.float32)
-u_exact = torch.tensor(normalize(u_exact, axis=0),dtype = torch.float32)
-v_exact = torch.tensor(normalize(p_exact, axis=0),dtype = torch.float32)
-p_exact = torch.tensor(normalize(p_exact, axis=0),dtype = torch.float32)
-T_exact = torch.tensor(normalize(T_exact, axis=0),dtype = torch.float32)
-
-"""
-optimizer = optim.LBFGS(model.parameters(), lr=1.0, max_iter=500, history_size=10)
 # Train the model
-train(model, optimizer, x_data, y_data)
+#train(model, optimizer, x_data, y_data)
 
 
-"""
+
 # Define the model and optimizer
 optimizer = optim.Adam(model.parameters(), lr=1e-4)
 #optim.Adamax(model.parameters(), lr=1e-2)
@@ -203,3 +215,30 @@ plt.plot(T_pred ,  label = "Predicted Temperature",)
 plt.legend()
 plt.tight_layout()
 plt.show()
+
+
+
+### testing with new noisy data
+
+d_valid = pd.read_csv('test_sparce_data.csv')
+
+
+x_v = torch.tensor(d_valid[['x']].values, dtype=torch.float32)
+y_v = torch.tensor(d_valid[['y']].values, dtype=torch.float32)
+u_v = torch.tensor(d_valid[['u']].values, dtype=torch.float32)
+
+
+#normal
+x_v = torch.tensor(normalize(x_v, axis=0),dtype = torch.float32)
+y_v = torch.tensor(normalize(y_v,axis=0),dtype = torch.float32)
+u_v = torch.tensor(normalize(u_v, axis=0),dtype = torch.float32)
+
+
+valid = model(torch.cat((x_v, y_v), dim=1)).detach().cpu().numpy()
+u_test = valid[:,0]
+
+print(u_v.shape)
+plt.plot(u_test, marker = "x",label = "predicted")
+plt.plot(u_v, label = "true")
+#plt.ylim(0,0.5)
+plt.legend()
