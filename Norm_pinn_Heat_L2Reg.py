@@ -11,7 +11,7 @@ import torch.optim as optim
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
-from sklearn.preprocessing import normalize
+#from sklearn.preprocessing import normalize
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 
 
@@ -110,6 +110,11 @@ def total_loss(model, x, y, u_exact, v_exact, p_exact=None, T_exact=None, mu=0.0
     loss = loss_f + loss_data + l2_lambda * l2_reg
 
     return loss
+
+def normalize(df): #df is a dataframe
+    normal_df = (2 * (df - df.min()) / (df.max() - df.min() )) - 1
+    return normal_df
+
 
 # Training parameters
 mu = 0.01  # Dynamic viscosity
